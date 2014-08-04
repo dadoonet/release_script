@@ -32,7 +32,7 @@ from os.path import dirname, abspath
 """
  This tool builds a release from the a given elasticsearch plugin branch.
  In order to execute it go in the top level directory and run:
-   $ python3 dev_tools/release.py --branch master --publish --remote origin
+   $ python3 dev_tools/build_release.py --branch master --publish --remote origin
 
  By default this script runs in 'dry' mode which essentially simulates a release. If the
  '--publish' option is set the actual release is done.
@@ -172,9 +172,14 @@ def process_file(file_path, line_callback):
         return False
 
 
+# Split a version x.y.z as an array of digits [x,y,z]
+def split_version_to_digits(version):
+    return list(map(int, re.findall(r'\d+', version)))
+
+
 # Guess the next snapshot version number (increment last digit)
 def guess_snapshot(version):
-    digits = list(map(int, re.findall(r'\d+', version)))
+    digits = split_version_to_digits(version)
     source = '%s.%s.%s' % (digits[0], digits[1], digits[2])
     destination = '%s.%s.%s' % (digits[0], digits[1], digits[2] + 1)
     return version.replace(source, destination)
@@ -183,8 +188,8 @@ def guess_snapshot(version):
 # Guess the anchor in generated documentation
 # Looks like this "#version-230-for-elasticsearch-13"
 def get_doc_anchor(release, esversion):
-    plugin_digits = list(map(int, re.findall(r'\d+', release)))
-    es_digits = list(map(int, re.findall(r'\d+', esversion)))
+    plugin_digits = split_version_to_digits(release)
+    es_digits = split_version_to_digits(esversion)
     return '#version-%s%s%s-for-elasticsearch-%s%s' % (
         plugin_digits[0], plugin_digits[1], plugin_digits[2], es_digits[0], es_digits[1])
 
@@ -209,6 +214,26 @@ def add_maven_snapshot(pom, release, snapshot):
         return line.replace(pattern, replacement)
 
     process_file(pom, callback)
+
+
+# Moves the README.md file from a snapshot to a release version. Doc looks like:
+# ## Version 2.5.0-SNAPSHOT for Elasticsearch: 1.x
+# It needs to be updated to
+# ## Version 2.5.0 for Elasticsearch: 1.x
+def update_documentation_in_released_branch(readme_file, release, esversion):
+    pattern = '## Version (.)+ for Elasticsearch: (.)+'
+    es_digits = split_version_to_digits(esversion)
+    replacement = '## Version %s for Elasticsearch: %s.%s\n' % (
+        release, es_digits[0], es_digits[1])
+
+    def callback(line):
+        # If we find pattern, we replace its content
+        if re.search(pattern, line) is not None:
+            return replacement
+        else:
+            return line
+
+    process_file(readme_file, callback)
 
 
 # Moves the README.md file from a snapshot to a release (documentation link)
@@ -518,26 +543,26 @@ def prepare_email(artifact_id, release_version, repository,
     msg = MIMEMultipart('alternative')
     msg['Subject'] = '[ANN] %s %s released' % (artifact_name, release_version)
     text = template_email_txt % {'release_version': release_version,
-       'artifact_id': artifact_id,
-       'artifact_name': artifact_name,
-       'artifact_description': artifact_description,
-       'project_url': project_url,
-       'empty_message': plain_empty_message,
-       'issues_bug': plain_issues_bug,
-       'issues_update': plain_issues_update,
-       'issues_new': plain_issues_new,
-       'issues_doc': plain_issues_doc}
+                                 'artifact_id': artifact_id,
+                                 'artifact_name': artifact_name,
+                                 'artifact_description': artifact_description,
+                                 'project_url': project_url,
+                                 'empty_message': plain_empty_message,
+                                 'issues_bug': plain_issues_bug,
+                                 'issues_update': plain_issues_update,
+                                 'issues_new': plain_issues_new,
+                                 'issues_doc': plain_issues_doc}
 
     html = template_email_html % {'release_version': release_version,
-       'artifact_id': artifact_id,
-       'artifact_name': artifact_name,
-       'artifact_description': artifact_description,
-       'project_url': project_url,
-       'empty_message': html_empty_message,
-       'issues_bug': html_issues_bug,
-       'issues_update': html_issues_update,
-       'issues_new': html_issues_new,
-       'issues_doc': html_issues_doc}
+                                  'artifact_id': artifact_id,
+                                  'artifact_name': artifact_name,
+                                  'artifact_description': artifact_description,
+                                  'project_url': project_url,
+                                  'empty_message': html_empty_message,
+                                  'issues_bug': html_issues_bug,
+                                  'issues_update': html_issues_update,
+                                  'issues_new': html_issues_new,
+                                  'issues_doc': html_issues_doc}
 
     # Record the MIME types of both parts - text/plain and text/html.
     part1 = MIMEText(text, 'plain')
@@ -713,6 +738,7 @@ if __name__ == '__main__':
         ########################################
         pending_files = [POM_FILE, README_FILE]
         remove_maven_snapshot(POM_FILE, release_version)
+        update_documentation_in_released_branch(README_FILE, release_version, elasticsearch_version)
         print('  Done removing snapshot version')
         add_pending_files(*pending_files)  # expects var args use * to expand
         commit_release(artifact_id, release_version)
@@ -751,6 +777,7 @@ if __name__ == '__main__':
         tag_release(release_version)
 
         add_maven_snapshot(POM_FILE, release_version, snapshot_version)
+        update_documentation_in_released_branch(README_FILE, '%s-SNAPSHOT' % snapshot_version, elasticsearch_version)
         add_pending_files(*pending_files)
         commit_snapshot()
 
