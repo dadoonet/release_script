@@ -58,6 +58,7 @@ BUILD_RELEASE_FILENAME = 'release.zip'
 BUILD_RELEASE_FILE = TARGET_TOOLS_DIR + '/' + BUILD_RELEASE_FILENAME
 # We define that we should download again the script after 1 days
 SCRIPT_OBSOLETE_DAYS = 1
+IGNORED_FILES = ['.gitignore', 'README.md']
 
 SOURCE_URL = 'https://github.com/dadoonet/release_script/archive/master.zip'
 
@@ -88,6 +89,8 @@ try:
                 filename = os.path.basename(member.filename)
                 # skip directories
                 if not filename:
+                    continue
+                if filename in IGNORED_FILES:
                     continue
 
                 # copy file (taken from zipfile's extract)
