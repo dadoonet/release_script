@@ -8,6 +8,13 @@ Copy `dev-tools/release.py` script to your `dev-tools/` dir and launch it using:
 python3 dev-tools/release.py
 ```
 
+or run in your root repository:
+
+```sh
+wget https://raw.githubusercontent.com/dadoonet/release_script/master/dev-tools/release.py -x -nH --cut-dirs=3
+python3 dev-tools/release.py
+```
+
 It will download all needed scripts and files in a `plugin_tools` directory and will launch
 the release process.
 
