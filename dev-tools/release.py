@@ -1,7 +1,7 @@
-# Licensed to Elasticsearch under one or more contributor
+# Licensed to David Pilato under one or more contributor
 # license agreements. See the NOTICE file distributed with
 # this work for additional information regarding copyright
-# ownership. Elasticsearch licenses this file to you under
+# ownership. David Pilato licenses this file to you under
 # the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance  with the License.
 # You may obtain a copy of the License at
@@ -26,7 +26,7 @@ import zipfile
 from os.path import dirname, abspath
 
 """
- This tool builds a release from the a given elasticsearch plugin branch.
+ This tool builds a release from the a given plugin branch.
 
  It is basically a wrapper on top of launch_release.py which:
 
@@ -51,16 +51,20 @@ from os.path import dirname, abspath
 """
 env = os.environ
 
+# Change this if the source repository for your scripts is at a different location
+SOURCE_REPO = 'dadoonet/release_script'
+# We define that we should download again the script after 1 days
+SCRIPT_OBSOLETE_DAYS = 1
+# We ignore in master.zip file the following files
+IGNORED_FILES = ['.gitignore', 'README.md']
+
+
 ROOT_DIR = abspath(os.path.join(abspath(dirname(__file__)), '../'))
 TARGET_TOOLS_DIR = ROOT_DIR + '/plugin_tools'
 DEV_TOOLS_DIR = ROOT_DIR + '/dev-tools'
 BUILD_RELEASE_FILENAME = 'release.zip'
 BUILD_RELEASE_FILE = TARGET_TOOLS_DIR + '/' + BUILD_RELEASE_FILENAME
-# We define that we should download again the script after 1 days
-SCRIPT_OBSOLETE_DAYS = 1
-IGNORED_FILES = ['.gitignore', 'README.md']
-
-SOURCE_URL = 'https://github.com/dadoonet/release_script/archive/master.zip'
+SOURCE_URL = 'https://github.com/%s/archive/master.zip' % SOURCE_REPO
 
 # Download a recent version of the release plugin tool
 try:

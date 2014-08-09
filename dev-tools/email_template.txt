@@ -1,7 +1,7 @@
 Heya,
 
 
-We are pleased to announce the release of the %(artifact_name)s, version %(release_version)s.
+I'm pleased to announce the release of the %(artifact_name)s, version %(release_version)s.
 
 %(artifact_description)s.
 
@@ -20,4 +20,4 @@ For questions or comments around this plugin, feel free to use elasticsearch mai
 
 Enjoy,
 
--The Elasticsearch team
+- David

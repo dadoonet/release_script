@@ -1,7 +1,7 @@
-# Licensed to Elasticsearch under one or more contributor
+# Licensed to David Pilato under one or more contributor
 # license agreements. See the NOTICE file distributed with
 # this work for additional information regarding copyright
-# ownership. Elasticsearch licenses this file to you under
+# ownership. David Pilato licenses this file to you under
 # the Apache License, Version 2.0 (the "License"); you may
 # not use this file except in compliance  with the License.
 # You may obtain a copy of the License at
@@ -30,7 +30,7 @@ from email.mime.text import MIMEText
 from os.path import dirname, abspath
 
 """
- This tool builds a release from the a given elasticsearch plugin branch.
+ This tool builds a release from the a given plugin branch.
  In order to execute it go in the top level directory and run:
    $ python3 dev_tools/build_release.py --branch master --publish --remote origin
 
@@ -44,7 +44,7 @@ from os.path import dirname, abspath
  The script takes over almost all
  steps necessary for a release from a high level point of view it does the following things:
 
-  - run prerequisite checks ie. check for S3 credentials available as env variables
+  - run prerequisite checks
   - detect the version to release from the specified branch (--branch) or the current branch
   - check that github issues related to the version are closed
   - creates a version release branch & updates pom.xml to point to a release version rather than a snapshot
@@ -53,16 +53,13 @@ from os.path import dirname, abspath
   - commits the new version and merges the version release branch into the source branch
   - merges the master release branch into the master branch
   - creates a tag and pushes branch and master to the specified origin (--remote)
-  - publishes the releases to sonatype and S3
   - send a mail based on github issues fixed by this version
 
 Once it's done it will print all the remaining steps.
 
  Prerequisites:
     - Python 3k for script execution
-    - Boto for S3 Upload ($ apt-get install python-boto or pip-3.3 install boto)
     - github3 module (pip-3.3 install github3.py)
-    - S3 keys exported via ENV Variables (AWS_ACCESS_KEY_ID,  AWS_SECRET_ACCESS_KEY)
     - GITHUB (login/password) or key exported via ENV Variables (GITHUB_LOGIN,  GITHUB_PASSWORD or GITHUB_KEY)
     (see https://github.com/settings/applications#personal-access-tokens) - Optional: default to no authentication
     - SMTP_HOST - Optional: default to localhost
@@ -256,9 +253,9 @@ def update_documentation_to_released_version(readme_file, repo_url, release, bra
 
 
 # Update installation instructions in README.md file
-def set_install_instructions(readme_file, artifact_name, release):
-    pattern = 'bin/plugin -install elasticsearch/%s/.+' % artifact_name
-    replacement = 'bin/plugin -install elasticsearch/%s/%s' % (artifact_name, release)
+def set_install_instructions(readme_file, group_id, artifact_id, release):
+    pattern = 'bin/plugin -install %s/%s/.+' % (group_id, artifact_id)
+    replacement = 'bin/plugin -install %s/%s/%s' % (group_id, artifact_id, release)
 
     def callback(line):
         return re.sub(pattern, replacement, line)
@@ -441,23 +438,6 @@ def build_release(run_tests=False, dry_run=True):
 
 ##########################################################
 #
-# Amazon S3 publish commands
-#
-##########################################################
-# Upload files to S3
-def publish_artifacts(artifacts, base='elasticsearch/elasticsearch', dry_run=True):
-    location = os.path.dirname(os.path.realpath(__file__))
-    for artifact in artifacts:
-        if dry_run:
-            print('Skip Uploading %s to Amazon S3 in %s' % (artifact, base))
-        else:
-            print('Uploading %s to Amazon S3' % artifact)
-            # requires boto to be installed but it is not available on python3k yet so we use a dedicated tool
-            run('python %s/upload-s3.py --file %s --path %s' % (location, os.path.abspath(artifact), base))
-
-
-##########################################################
-#
 # Email and Github Management
 #
 ##########################################################
@@ -473,7 +453,7 @@ def get_github_repository(reponame,
     else:
         g = github3.GitHub()
 
-    return g.repository("elasticsearch", reponame)
+    return g.repository("dadoonet", reponame)
 
 
 # Check if there are some remaining open issues and fails
@@ -583,7 +563,7 @@ def send_email(msg,
                sender=env.get('MAIL_SENDER'),
                to=env.get('MAIL_TO', 'elasticsearch@googlegroups.com'),
                smtp_server=env.get('SMTP_SERVER', 'localhost')):
-    msg['From'] = 'Elasticsearch Team <%s>' % sender
+    msg['From'] = 'David Pilato <%s>' % sender
     msg['To'] = 'Elasticsearch Mailing List <%s>' % to
     # save mail on disk
     with open(ROOT_DIR + '/target/email.txt', 'w') as email_file:
@@ -628,12 +608,6 @@ def print_sonatype_notice():
   """)
 
 
-def check_s3_credentials():
-    if not env.get('AWS_ACCESS_KEY_ID', None) or not env.get('AWS_SECRET_ACCESS_KEY', None):
-        raise RuntimeError(
-            'Could not find "AWS_ACCESS_KEY_ID" / "AWS_SECRET_ACCESS_KEY" in the env variables please export in order to upload to S3')
-
-
 def check_github_credentials():
     if not env.get('GITHUB_KEY', None) and not env.get('GITHUB_LOGIN', None):
         log(
@@ -675,7 +649,6 @@ if __name__ == '__main__':
         raise RuntimeError('Can not release the master branch. You need to create another branch before a release')
 
     if not dry_run:
-        check_s3_credentials()
         print('WARNING: dryrun is set to "false" - this will push and publish the release')
         if mail:
             check_email_settings()
@@ -692,10 +665,12 @@ if __name__ == '__main__':
 
     release_version = find_release_version(src_branch)
     artifact_id = find_from_pom('artifactId')
+    group_id = find_from_pom('groupId')
     artifact_name = find_from_pom('name')
     artifact_description = find_from_pom('description')
     project_url = find_from_pom('url')
     elasticsearch_version = find_from_pom('elasticsearch.version')
+    print('  Group Id: [%s]' % group_id)
     print('  Artifact Id: [%s]' % artifact_id)
     print('  Release version: [%s]' % release_version)
     print('  Elasticsearch: [%s]' % elasticsearch_version)
@@ -764,7 +739,7 @@ if __name__ == '__main__':
         git_checkout(release_branch('master', release_version))
         update_documentation_to_released_version(README_FILE, project_url, release_version, src_branch,
                                                  elasticsearch_version)
-        set_install_instructions(README_FILE, artifact_id, release_version)
+        set_install_instructions(README_FILE, group_id, artifact_id, release_version)
         add_pending_files(*pending_files)  # expects var args use * to expand
         commit_master(release_version)
 
@@ -786,8 +761,6 @@ if __name__ == '__main__':
 
         print('  push to %s %s -- dry_run: %s' % (remote, src_branch, dry_run))
         git_push(remote, src_branch, release_version, dry_run)
-        print('  publish artifacts to S3 -- dry_run: %s' % dry_run)
-        publish_artifacts(artifact_and_checksums, base='elasticsearch/%s' % (artifact_id) , dry_run=dry_run)
         print('  preparing email (from github issues)')
         msg = prepare_email(artifact_id, release_version, repository, artifact_name, artifact_description, project_url)
         input('Press Enter to send email...')
