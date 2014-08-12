@@ -429,11 +429,13 @@ def run_mvn(*cmd):
 def build_release(run_tests=False, dry_run=True):
     target = 'deploy'
     tests = '-DskipTests'
+    profile = '-Psonatype-oss-release'
     if run_tests:
         tests = ''
     if dry_run:
         target = 'package'
-    run_mvn('clean %s %s' % (target, tests))
+        profile = ''
+    run_mvn('clean %s %s %s' % (target, tests, profile))
 
 
 ##########################################################
