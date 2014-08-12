@@ -830,7 +830,11 @@ Release successful pending steps:
             git_checkout(src_branch)
             run('git reset --hard %s' % version_hash)
             run('git tag -d v%s' % release_version)
+        else:
+            # We checkout branch we started on
+            git_checkout(src_branch)
 
         # we delete this one anyways
         run('git branch -D %s' % (release_branch('master', release_version)))
         run('git branch -D %s' % (release_branch(src_branch, release_version)))
+
