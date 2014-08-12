@@ -65,6 +65,7 @@ Once it's done it will print all the remaining steps.
     - SMTP_HOST - Optional: default to localhost
     - MAIL_SENDER - Optional: default to 'david@pilato.fr': must be authorized to send emails to elasticsearch mailing list
     - MAIL_TO - Optional: default to 'elasticsearch@googlegroups.com'
+    - GPG passphrase should be set in an activated profile (see ~/.m2/settings.xml)
 """
 env = os.environ
 
@@ -610,6 +611,34 @@ def print_sonatype_notice():
   """)
 
 
+def print_gpg_notice():
+    settings = os.path.join(os.path.expanduser('~'), '.m2/settings.xml')
+    if os.path.isfile(settings):
+        with open(settings, encoding='utf-8') as settings_file:
+            for line in settings_file:
+                match = re.search(r'<gpg.passphrase>(.+)</gpg.passphrase>', line)
+                if match:
+                    # moving out - we found the indicator no need to print the warning
+                    return
+    print("""
+    NOTE: No GPG settings detected, make sure you have configured
+    your GPG passphrase in '~/.m2/settings.xml':
+
+    <settings>
+      <profiles>
+        <profile>
+          <id>gpg</id>
+          <properties>
+            <gpg.passphrase>mypassphrase</gpg.passphrase>
+          </properties>
+        </profile>
+      </profiles>
+      <activeProfiles>
+        <activeProfile>gpg</activeProfile>
+      </activeProfiles>
+    </settings>
+  """)
+
 def check_github_credentials():
     if not env.get('GITHUB_KEY', None) and not env.get('GITHUB_LOGIN', None):
         log(
@@ -622,6 +651,7 @@ def check_email_settings():
 
 # we print a notice if we can not find the relevant infos in the ~/.m2/settings.xml
 print_sonatype_notice()
+print_gpg_notice()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Builds and publishes a Elasticsearch Plugin Release')
